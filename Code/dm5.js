@@ -8,13 +8,13 @@ const inspector = createBrowserInspector();
 const azureCredentials = {
   endpoint:
     "https://northeurope.api.cognitive.microsoft.com/sts/v1.0/issuetoken",
-  key: KEY,
+  key: "b09e7c5d10d04b48a07aad4fd1002361",
 };
 
 const azureLanguageCredentials = {
   endpoint:
   "https://language-resource-tianyigeng.cognitiveservices.azure.com/language/:analyze-conversations?api-version=2022-10-01-preview",
-  key: NLU_KEY,
+  key: "7d04fc6752d84b2f9e582c9385c8f379",
   deploymentName: "appointment",
   projectName: "appointment",
 
@@ -195,7 +195,7 @@ const dmMachine = setup({
                 Stage1Prompt:{
                   entry: [{
                     type: "Say",
-                    params: `Hi! You may ask me to make an appointment like "I want to book an appointment with Vlad on Tuesday at 3 p.m.", or ask me about a famous person like "Who is Taylor Swift".`,
+                    params: `Hi! You may ask me to make an appointment or ask me about a famous person like "Who is Taylor Swift".`,
                   }],
                   on: { SPEAK_COMPLETE: "Stage1Listen" },
                 },
@@ -370,149 +370,83 @@ const dmMachine = setup({
                         },
                         target: "#DM.Running.Main"
                       },
-                      { guard: ({ event }) => {
-                        const recognizedUtterance = event.value[0].utterance;
-                        const confidence = event.value[0].confidence;
-                        console.log(recognizedUtterance, confidence);
-                        return (!checkConfidence(confidence)
-                        );
-                      },
-                      target: "#DM.Running.Main.Stage2", 
-                      },
                       // if all 3 entities are provided
+                      // Aya: changed this following your code above and it works just fine
                       { 
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            if (entity.category === 'meeting person') {assign({ person: ({}) => entity.text })}
-                            if (entity.category === 'meeting date'){assign({ day: ({}) => entity.text })}
-                            if (entity.category === 'meeting time'){assign({ time: ({}) => entity.text })}
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if all the context entities are defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 3 && context.person && context.day && context.time;
-                          },
-                        target: "#DM.Running.Main.Stage7",
+                        guard: ({ event }) => (event.nluValue.entities.length === 3),
+                          actions:[
+                            assign({ person: ({ event }) => event.nluValue.entities[0].text }),
+                            assign({ day: ({ event }) => event.nluValue.entities[1].text }),
+                            assign({ time: ({ event }) => event.nluValue.entities[2].text }),
+                            ({ event }) => console.log(event.nluValue.entities[0].text),
+                          ],
+                          target: "#DM.Running.Main.Stage7",
                       },
                       // if person name is provided
+                      // Aya: Did the same here, tuning stuff a little bit
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting person' ? assign({ person: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context person is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.person;
-                          },
-                          target: "#DM.Running.Main.Stage3",
+                        // we can skip confidence for entities
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0].category === 'meeting person'),
+                        actions: assign({ 
+                          person: ({ event }) => event.nluValue.entities[0].text
+                        }),
+                        target: "#DM.Running.Main.Stage3"
+                        // guard: ({ event }) => { (event.nluValue.entities.length === 1) && (event.nluValue.entities[0].category === 'meeting person')
+                        //     
+                        //     ;
+                        //   },
+                        //   actions:[
+                        //     assign({ person: ({ event }) => event.nluValue.entities[0].text }),
+                        //     ({ event }) => console.log(event.nluValue.entities[0].text),
+                        //   ],
+                        //   target: "#DM.Running.Main.Stage3",
                       },
                       // if time is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting time' ? assign({ time: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context time is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.time;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0].category === 'meeting time'),
+                        actions: assign({ 
+                          time: ({ event }) => event.nluValue.entities[0].text
+                        }),
                           target: "#DM.Running.Main.Stage4",
                       },
                       // if day is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting date' ? assign({ day: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context day is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.day;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0].category === 'meeting date'),
+                        actions: assign({ 
+                          day: ({ event }) => event.nluValue.entities[0].text
+                        }),
                           target: "#DM.Running.Main.Stage5",
                       },
                       // if time and day are provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting date' ? assign({ day: ({}) => entity.text }): null;
-                            entity.category === 'meeting time' ? assign({ time: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context day and time are defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 2 && context.day && context.time;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 2 && event.nluValue.entities.find(entity => entity.category === 'meeting time') && event.nluValue.entities.find(entity => entity.category === 'meeting date')),
+                        actions: [
+                          assign({ day: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting date').text,}),
+                          assign({ time: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting time').text,}),
+                        ],
                           target: "#DM.Running.Main.AskingName",
                       },
                       // if time and person name are provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting person' ? assign({ person: ({}) => entity.text }): null;
-                            entity.category === 'meeting time' ? assign({ time: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context person and time are defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 2 && context.person && context.time;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 2 && event.nluValue.entities.find(entity => entity.category === 'meeting time') && event.nluValue.entities.find(entity => entity.category === 'meeting person')),
+                        actions: [
+                          assign({ time: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting time').text,}),
+                          assign({ person: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting person').text,}),
+                        ],
                           target: "#DM.Running.Main.AskingDay",
                       },
                       // if day and person name are provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting person' ? assign({ person: ({}) => entity.text }): null;
-                            entity.category === 'meeting date' ? assign({ day: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context person and day is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 2 && context.person && context.day;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 2 && event.nluValue.entities.find(entity => entity.category === 'meeting date') && event.nluValue.entities.find(entity => entity.category === 'meeting person')),
+                        actions: [
+                          assign({ day: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting date').text,}),
+                          assign({ person: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting person').text,}),
+                        ],
                           target: "#DM.Running.Main.AskingTime",
                       },
-                      {
-                      target: "#DM.Running.NotInGrammar",
-                      }
+                      // {
+                      // target: "#DM.Running.NotInGrammar",
+                      // }
                     ],
                   },
                 },
@@ -552,68 +486,29 @@ const dmMachine = setup({
                         },
                         target: "#DM.Running.Main"
                       },
-                      { guard: ({ event }) => {
-                        const recognizedUtterance = event.value[0].utterance;
-                        const confidence = event.value[0].confidence;
-                        console.log(recognizedUtterance, confidence);
-                        return (!checkConfidence(confidence)
-                        );
-                      },
-                      target: "#DM.Running.Main.Stage3", 
-                      },
                       // if 2 entities are provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting time' ? assign({ time: ({}) => entity.text }): null;
-                            entity.category === 'meeting date' ? assign({ day: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context person is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 2 && context.time && context.day;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 2 && event.nluValue.entities.find(entity => entity.category === 'meeting time') && event.nluValue.entities.find(entity => entity.category === 'meeting date')),
+                        actions: [
+                          assign({ day: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting date').text,}),
+                          assign({ time: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting time').text,}),
+                        ],
                           target: "#DM.Running.Main.Stage7",
                       },
                       // if time is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting time' ? assign({ time: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context time is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.time;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0] === 'meeting time'),
+                        actions: [
+                          assign({ time: ({ event }) => event.nluValue.entities[0].text,}),
+                        ],
                           target: "#DM.Running.Main.AskingDay",
                       },
                       // if day is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting date' ? assign({ day: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context day is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.day;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0] === 'meeting date'),
+                        actions: [
+                          assign({ day: ({ event }) => event.nluValue.entities[0].text,}),
+                        ],
                           target: "#DM.Running.Main.AskingTime",
                       },
                       {
@@ -658,68 +553,29 @@ const dmMachine = setup({
                         },
                         target: "#DM.Running.Main"
                       },
-                      { guard: ({ event }) => {
-                        const recognizedUtterance = event.value[0].utterance;
-                        const confidence = event.value[0].confidence;
-                        console.log(recognizedUtterance, confidence);
-                        return (!checkConfidence(confidence)
-                        );
-                      },
-                      target: "#DM.Running.Main.Stage4", 
-                      },
                       // if 2 entities are provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting person' ? assign({ person: ({}) => entity.text }): null;
-                            entity.category === 'meeting date' ? assign({ day: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context person and day are defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 2 && context.person && context.day;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 2 && event.nluValue.entities.find(entity => entity.category === 'meeting person') && event.nluValue.entities.find(entity => entity.category === 'meeting date')),
+                        actions: [
+                          assign({ day: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting date').text,}),
+                          assign({ person: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting person').text,}),
+                        ],
                           target: "#DM.Running.Main.Stage7",
                       },
                       // if name is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting person' ? assign({ person: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context time is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.person;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0] === 'meeting person'),
+                        actions: [
+                          assign({ person: ({ event }) => event.nluValue.entities[0].text,}),
+                        ],
                           target: "#DM.Running.Main.AskingDay",
                       },
                       // if day is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting date' ? assign({ day: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context day is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.day;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0] === 'meeting date'),
+                        actions: [
+                          assign({ day: ({ event }) => event.nluValue.entities[0].text,}),
+                        ],
                           target: "#DM.Running.Main.AskingName",
                       },
                       {
@@ -764,68 +620,29 @@ const dmMachine = setup({
                         },
                         target: "#DM.Running.Main"
                       },
-                      { guard: ({ event }) => {
-                        const recognizedUtterance = event.value[0].utterance;
-                        const confidence = event.value[0].confidence;
-                        console.log(recognizedUtterance, confidence);
-                        return (!checkConfidence(confidence)
-                        );
-                      },
-                      target: "#DM.Running.Main.Stage5", 
-                      },
                       // if 2 entities are provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting person' ? assign({ person: ({}) => entity.text }): null;
-                            entity.category === 'meeting time' ? assign({ time: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context person and day are defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 2 && context.person && context.time;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 2 && event.nluValue.entities.find(entity => entity.category === 'meeting person') && event.nluValue.entities.find(entity => entity.category === 'meeting time')),
+                        actions: [
+                          assign({ time: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting time').text,}),
+                          assign({ person: ({ event }) => event.nluValue.entities.find(entity => entity.category === 'meeting person').text,}),
+                        ],
                           target: "#DM.Running.Main.Stage7",
                       },
                       // if name is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting person' ? assign({ person: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context time is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.person;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0] === 'meeting person'),
+                        actions: [
+                          assign({ person: ({ event }) => event.nluValue.entities[0].text,}),
+                        ],
                           target: "#DM.Running.Main.AskingTime",
                       },
                       // if time is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting time' ? assign({ time: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context day is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.day;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0] === 'meeting time'),
+                        actions: [
+                          assign({ time: ({ event }) => event.nluValue.entities[0].text,}),
+                        ],
                           target: "#DM.Running.Main.AskingName",
                       },
                       {
@@ -845,7 +662,7 @@ const dmMachine = setup({
                   entry: [
                     {
                     type: "Say",
-                    params: `What time is your meeting?` 
+                    params: `What time is your meeting? Answer like "My meeting is at 3 p.m.."` 
                     },
                   ],
                   on: { SPEAK_COMPLETE: "Listen" },
@@ -870,31 +687,12 @@ const dmMachine = setup({
                         },
                         target: "#DM.Running.Main"
                       },
-                      { guard: ({ event }) => {
-                        const recognizedUtterance = event.value[0].utterance;
-                        const confidence = event.value[0].confidence;
-                        console.log(recognizedUtterance, confidence);
-                        return (!checkConfidence(confidence)
-                        );
-                      },
-                      target: "#DM.Running.Main.AskingTime", 
-                      },
                       // if time is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting time' ? assign({ time: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context day is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.time;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0].category === 'meeting time'),
+                        actions: assign({ 
+                          time: ({ event }) => event.nluValue.entities[0].text
+                        }),
                           target: "#DM.Running.Main.Stage7",
                       },
                       {
@@ -914,7 +712,7 @@ const dmMachine = setup({
                   entry: [
                     {
                     type: "Say",
-                    params: `On what day is your meeting?` 
+                    params: `On what day is your meeting? Answer like "My meeting is on Wednesday".` 
                     },
                   ],
                   on: { SPEAK_COMPLETE: "Listen" },
@@ -939,31 +737,12 @@ const dmMachine = setup({
                         },
                         target: "#DM.Running.Main"
                       },
-                      { guard: ({ event }) => {
-                        const recognizedUtterance = event.value[0].utterance;
-                        const confidence = event.value[0].confidence;
-                        console.log(recognizedUtterance, confidence);
-                        return (!checkConfidence(confidence)
-                        );
-                      },
-                      target: "#DM.Running.Main.AskingDay", 
-                      },
                       // if day is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting date' ? assign({ day: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context day is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.day;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0].category === 'meeting date'),
+                        actions: assign({ 
+                          day: ({ event }) => event.nluValue.entities[0].text
+                        }),
                           target: "#DM.Running.Main.Stage7",
                       },
                       {
@@ -983,7 +762,7 @@ const dmMachine = setup({
                   entry: [
                     {
                     type: "Say",
-                    params: `Who are you meeting?` 
+                    params: `Who are you meeting? Answer like "My meeting is with Aya".` 
                     },
                   ],
                   on: { SPEAK_COMPLETE: "Listen" },
@@ -1008,31 +787,12 @@ const dmMachine = setup({
                         },
                         target: "#DM.Running.Main"
                       },
-                      { guard: ({ event }) => {
-                        const recognizedUtterance = event.value[0].utterance;
-                        const confidence = event.value[0].confidence;
-                        console.log(recognizedUtterance, confidence);
-                        return (!checkConfidence(confidence)
-                        );
-                      },
-                      target: "#DM.Running.Main.AskingName", 
-                      },
                       // if name is provided
                       {
-                        guard: ({ event,context }) => {
-                          const recognizedUtterance = event.nluValue;
-                          const confidence = event.nluValue.intents[0].confidenceScore;
-                          console.log(recognizedUtterance);
-                          console.log(checkConfidence(confidence));
-                          const entities = recognizedUtterance.entities;
-                          for (let entity of entities){
-                            entity.category === 'meeting person' ? assign({ person: ({}) => entity.text }): null;
-                          }
-                          const entitiesLength = event.nluValue.entities.length;
-                          // check if the context day is defined
-                          return checkConfidence(confidence)
-                            && entitiesLength === 1 && context.person;
-                          },
+                        guard: ({event}) => (event.nluValue.entities.length === 1 && event.nluValue.entities[0].category === 'meeting person'),
+                        actions: assign({ 
+                          person: ({ event }) => event.nluValue.entities[0].text
+                        }),
                           target: "#DM.Running.Main.Stage7",
                       },
                       {
